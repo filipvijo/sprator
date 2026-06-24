@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import { logAudit, logFeed, decideApproval } from "@/lib/audit";
+import { getPendingApprovals, getCompletedApprovals, getApproval, updateApproval, logAudit, logFeed } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const db = getDb();
-  const pending = db.prepare("SELECT * FROM approvals WHERE status='pending' ORDER BY created_at DESC").all();
-  const completed = db.prepare("SELECT * FROM approvals WHERE status != 'pending' ORDER BY decided_at DESC LIMIT 10").all();
-  return NextResponse.json({ pending, completed });
+  return NextResponse.json({
+    pending: getPendingApprovals(),
+    completed: getCompletedApprovals(),
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -18,14 +17,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing approvalId or decision" }, { status: 400 });
   }
 
-  const db = getDb();
-  const approval = db.prepare("SELECT * FROM approvals WHERE id = ?").get(approvalId) as any;
-
+  const approval = getApproval(approvalId);
   if (!approval) {
     return NextResponse.json({ error: "Approval not found" }, { status: 404 });
   }
 
-  decideApproval(approvalId, decision);
+  updateApproval(approvalId, {
+    status: decision,
+    decided_at: new Date().toISOString(),
+    decided_by: "telegram",
+  });
 
   logAudit({
     action: `${approval.title} — ${decision === "approve" ? "approved" : "rejected"}`,

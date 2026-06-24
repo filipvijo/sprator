@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getAllAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const db = getDb();
-  const audit = db.prepare("SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 50").all();
+  const audit = getAllAudit();
   return NextResponse.json({ audit });
 }

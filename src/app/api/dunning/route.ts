@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import { logAudit, logFeed } from "@/lib/audit";
+import { updateFailedPayment, logAudit, logFeed } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -11,12 +10,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing paymentId" }, { status: 400 });
   }
 
-  const db = getDb();
-
-  // Update failed payment status to "email_sent"
-  db.prepare(`
-    UPDATE failed_payments SET status='email_sent', agent_action='Dunning email sent', updated_at=datetime('now') WHERE id=?
-  `).run(paymentId);
+  updateFailedPayment(paymentId, {
+    status: "email_sent",
+    agent_action: "Dunning email sent",
+  });
 
   logAudit({
     action: `Dunning email sent — ${customerName}`,

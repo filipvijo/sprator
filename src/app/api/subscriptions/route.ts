@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getAllSubscriptions } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const db = getDb();
-  const subs = db.prepare("SELECT * FROM subscriptions ORDER BY monthly_cost DESC").all();
+  const subs = getAllSubscriptions();
   return NextResponse.json({ subscriptions: subs });
 }

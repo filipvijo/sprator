@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { syncSubscriptions } from "@/lib/stripe";
-import { flagUnusedSubscriptions, detectDuplicates } from "@/lib/analysis";
 import { logFeed } from "@/lib/audit";
+import { flagUnusedSubscriptions, detectDuplicates } from "@/lib/analysis";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-/**
- * POST /api/sync — sync subscriptions from Stripe and run analysis.
- * Called by the agent or a cron job.
- */
 export async function POST(req: NextRequest) {
   const authKey = req.headers.get("x-cron-key");
   if (process.env.CRON_KEY && authKey !== process.env.CRON_KEY) {
@@ -19,7 +14,10 @@ export async function POST(req: NextRequest) {
   try {
     let synced = 0;
     try {
-      synced = await syncSubscriptions();
+      const { syncSubscriptions } = await import("@/lib/stripe");
+      if (process.env.STRIPE_SECRET_KEY) {
+        synced = await syncSubscriptions();
+      }
     } catch (stripeErr: any) {
       console.log("Stripe sync skipped:", stripeErr.message);
     }
