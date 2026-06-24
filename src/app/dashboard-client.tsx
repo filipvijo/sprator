@@ -12,6 +12,8 @@ interface AuditEntry { id: string; action: string; amount: number | null; stripe
 interface Overview {
   monthlyBurn: number; activeSubs: number; wasteCount: number; unusedCount: number;
   potentialSavings: number; savingsFound: number; revenueRecovered: number;
+  netImpactAnnual: number; realizedMonthlySavings: number;
+  guardrails?: { autoApproveUnder: number; monthlySpendCap: number };
   pendingApprovals: number; anomalies: { name: string; detail: string }[]; feed: FeedItem[];
 }
 
@@ -246,6 +248,35 @@ export default function DashboardClient() {
 
       {/* ── Body ───────────────────────────────────────────────── */}
       <div style={{ maxWidth: 1460, margin: "0 auto", padding: "22px 26px 90px", display: "flex", flexDirection: "column", gap: 22 }}>
+
+        {/* ── Net Agent Impact (earn + save) ─────────────────── */}
+        <Card style={{ padding: "18px 22px", background: "linear-gradient(110deg,rgba(52,211,153,0.10),rgba(52,211,153,0.02))", borderColor: "rgba(52,211,153,0.22)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 10, color: C.emerald, textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 700 }}>Net Agent Impact</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 6 }}>
+                <span style={{ fontSize: 36, fontWeight: 700, fontFamily: mono, color: C.emerald, letterSpacing: "-0.01em" }}>{money0(overview?.netImpactAnnual || 0)}</span>
+                <span style={{ fontSize: 13, color: C.dim, fontFamily: mono }}>/yr realized</span>
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
+                {money0(overview?.revenueRecovered || 0)} recovered + {money0(overview?.savingsFound || 0)}/yr saved
+              </div>
+            </div>
+            <div style={{ flex: 1 }} />
+            {overview?.guardrails && (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ border: `1px solid ${C.border2}`, borderRadius: 10, padding: "9px 13px", background: "rgba(255,255,255,0.02)" }}>
+                  <div style={{ fontSize: 9.5, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>🛡 Auto-approve under</div>
+                  <div style={{ fontSize: 16, fontWeight: 600, fontFamily: mono, color: C.text, marginTop: 3 }}>{money0(overview.guardrails.autoApproveUnder)}<span style={{ fontSize: 11, color: C.dim }}>/mo</span></div>
+                </div>
+                <div style={{ border: `1px solid ${C.border2}`, borderRadius: 10, padding: "9px 13px", background: "rgba(255,255,255,0.02)" }}>
+                  <div style={{ fontSize: 9.5, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>🛡 Spend cap</div>
+                  <div style={{ fontSize: 16, fontWeight: 600, fontFamily: mono, color: C.text, marginTop: 3 }}>{money0(overview.guardrails.monthlySpendCap)}<span style={{ fontSize: 11, color: C.dim }}>/mo</span></div>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
 
         {/* ── Stats Cards ────────────────────────────────────── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(206px,1fr))", gap: 14 }}>
