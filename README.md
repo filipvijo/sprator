@@ -10,7 +10,10 @@ Sprator is an AI agent that acts as an autonomous CFO for solo founders and smal
 
 - **Monitors spend** — tracks all Stripe subscriptions, detects waste, unused services, and cost anomalies
 - **Recovers revenue** — chases failed payments with automated dunning sequences and Stripe payment links
-- **Executes approved actions** — cancels subscriptions, creates payment links, all with human-in-the-loop approval
+- **Acts within guardrails** — auto-executes low-risk cancellations (under a configurable $/mo threshold) on its own, and escalates anything bigger or anomalous for human approval. Hard monthly spend cap on agent-initiated purchases.
+- **Spends autonomously** — provisions/pays for services it needs via real Stripe payment links (Stripe Skills for Hermes)
+- **Reports net P&L** — a single "Net Agent Impact" figure = revenue recovered + annualized savings realized
+- **Reaches out proactively** — a `pulse` endpoint a Hermes cron polls to ping you on Telegram *unprompted* when something needs attention
 - **Maintains a full audit trail** — every action timestamped and reconciled to Stripe references
 
 ## Architecture
@@ -92,7 +95,9 @@ Copy `.env.example` to `.env.local`:
 | POST | `/api/approvals` | Approve/reject an action |
 | POST | `/api/payment-link` | Create Stripe payment link |
 | POST | `/api/sync` | Sync from Stripe + run analysis |
-| POST | `/api/agent/audit` | Agent "audit this month" command |
+| POST | `/api/agent/audit` | Agent "audit this month" — auto-handles within guardrails, escalates the rest |
+| POST | `/api/agent/provision` | Agent provisions/pays for a service (real Stripe link, spend-cap enforced) |
+| GET | `/api/agent/pulse` | Proactive alert feed for cron-driven Telegram pings |
 | GET | `/api/health` | Health check |
 
 ## Agent Integration
