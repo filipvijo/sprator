@@ -36,13 +36,14 @@ sprator/
 │   │       ├── sync/                 # Sync from Stripe + analyze
 │   │       ├── agent/audit/          # Agent "audit this month" command
 │   │       └── health/               # Health check
+│   │       ├── agent/provision/       # Agent provisions/pays for a service
+│   │       └── agent/pulse/           # Proactive alert feed (for cron)
 │   └── lib/
-│       ├── db.ts                     # SQLite (better-sqlite3)
+│       ├── db.ts                     # In-memory store (auto-seeds; Vercel-friendly)
 │       ├── stripe.ts                 # Stripe client + operations
 │       ├── analysis.ts               # Spend analysis engine
+│       ├── impact.ts                 # Net P&L + guardrails config
 │       └── audit.ts                  # Audit log + feed + approvals
-├── scripts/
-│   └── seed.mjs                      # Demo data seeder
 ├── package.json
 ├── tsconfig.json
 ├── next.config.js
@@ -59,10 +60,7 @@ cd sprator
 # Install
 npm install
 
-# Seed demo data
-npm run db:seed
-
-# Run
+# Run (the in-memory store auto-seeds with demo data on first request)
 npm run dev
 # Open http://localhost:3000
 ```
@@ -73,13 +71,12 @@ Copy `.env.example` to `.env.local`:
 
 | Var | Required | Purpose |
 |-----|----------|---------|
-| `STRIPE_SECRET_KEY` | For live Stripe | Stripe API key (`sk_tes...n`) |
-| `SPRATOR_PORT` | No | Dev server port (default: 3000) |
-| `SPRATOR_DB_PATH` | No | SQLite path (default: `./sprator.db`) |
-| `CRON_KEY` | No | Auth key for `/api/sync` endpoint |
-| `TELEGRAM_BOT_TOKEN` | For agent | Telegram bot for notifications |
+| `STRIPE_SECRET_KEY` | For live Stripe | Stripe API key (use a `sk_test_…` key — runs in sandbox, no real money) |
+| `SPRATOR_AUTO_APPROVE_UNDER` | No | Guardrail: agent auto-cancels subscriptions at/under this $/mo (default: `25`) |
+| `SPRATOR_MONTHLY_SPEND_CAP` | No | Guardrail: hard ceiling on agent-initiated spend, $/mo (default: `2000`) |
+| `CRON_KEY` | No | Auth key for the `/api/sync` endpoint |
 
-> **Demo mode:** Without Stripe keys, the app runs fully on seeded local data. Stripe calls are gracefully skipped.
+> **Demo mode:** Without a Stripe key, the app runs fully on the in-memory seed data and Stripe calls are gracefully skipped. With a `sk_test_…` key, cancellations, payment links, and provisioning hit the real Stripe **test** API (sandbox — no real money moves).
 
 ## API Endpoints
 
@@ -102,29 +99,30 @@ Copy `.env.example` to `.env.local`:
 
 ## Agent Integration
 
-Sprator is designed to be operated by a Hermes Agent via Telegram. The agent can:
+Sprator is operated by a **Hermes Agent over Telegram** — there is no dedicated Sprator bot; Hermes *is* the agent, driving the HTTP API. The agent can:
 
-1. Call `POST /api/agent/audit` to run a full audit
-2. Read `GET /api/overview` to summarize the financial state
-3. Call `POST /api/approvals` to approve/reject pending actions
-4. Call `POST /api/cancel` to execute approved cancellations
-5. Call `POST /api/dunning` to chase failed payments
-6. Call `POST /api/payment-link` to generate recovery links
+1. `POST /api/agent/audit` — run a monthly audit. The agent **auto-executes** cancellations within its guardrail and **escalates** the rest (and anomalies) for human approval.
+2. `GET /api/overview` — summarize the financial state, including the Net Agent Impact (earn + save) and active guardrails.
+3. `POST /api/approvals` — approve/reject pending actions.
+4. `POST /api/cancel` / `POST /api/dunning` / `POST /api/payment-link` — execute approved cancellations, chase failed payments, generate recovery links.
+5. `POST /api/agent/provision` — **autonomously spend**: provision/pay for a service via a real Stripe (test) link, enforced against the spend cap.
+6. `GET /api/agent/pulse` — polled on a cron; when something needs attention the agent **pings the user on Telegram unprompted**.
 
-## Demo Script
+## Demo Flow (Telegram + dashboard)
 
-1. `npm run db:seed` — load realistic demo data
-2. Open dashboard — see 12 subscriptions, 3 pending approvals, 6 failed payments
-3. Click "Approve" on "Cancel Notion AI" — watch it execute and appear in audit trail
-4. Click "Cancel" on a flagged subscription in Spend Monitor — see approval modal
-5. Run `curl -X POST http://localhost:3000/api/agent/audit` — agent runs full audit
-6. Check agent activity feed — new entries appear from the audit
+Run side by side: your Hermes Telegram chat on the left, the dashboard on the right.
+
+1. **`audit this month`** → the agent auto-cancels low-cost waste (within the guardrail) and lists the bigger items for your approval.
+2. **`approve Figma and Zoom, hold AWS`** → approved actions execute; everything is written to the audit trail with Stripe refs.
+3. **`provision Anthropic API credits at $40/mo`** → the agent creates a real Stripe test payment link, within its spend cap.
+4. Watch the dashboard's **Net Agent Impact** and activity feed update live.
 
 ## Tech Stack
 
 - **Next.js 15** (App Router, API routes)
-- **Stripe** (subscriptions, payment links, webhooks)
-- **better-sqlite3** (local DB, no external DB required)
+- **Stripe** (test mode — subscriptions, payment links, provisioning)
+- **In-memory store** (auto-seeds with demo data; zero-config, Vercel-friendly)
+- **Hermes Agent** (operates Sprator over Telegram via the `sprator-agent` skill)
 - **TypeScript**
 
 ## License
